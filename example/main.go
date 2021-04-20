@@ -3,7 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"wirefilter"
+
+	"github.com/hysios/wirefilter"
 )
 
 func main() {

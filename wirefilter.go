@@ -32,7 +32,7 @@ const (
 )
 
 type Schema struct {
-	ptr *C.wirefilter_scheme_t
+	ptr   *C.wirefilter_scheme_t
 	types map[string]Type
 }
 
@@ -50,7 +50,7 @@ func (s *Schema) AddField(name string, type_ Type) {
 
 	C.wirefilter_add_type_field_to_scheme(s.ptr,
 		C.wirefilter_externally_allocated_str_t{
-			data: cName,
+			data:   cName,
 			length: cNameSizeT,
 		}, C.wirefilter_type_t(type_)) // TODO: is this really safe?
 	s.types[name] = type_
@@ -69,7 +69,7 @@ func (s Schema) Parse(input string) (*AST, error) {
 
 	parsingResult := C.wirefilter_parse_filter(s.ptr,
 		C.wirefilter_externally_allocated_str_t{
-			data: cInput,
+			data:   cInput,
 			length: cInputSizeT,
 		})
 
@@ -113,14 +113,14 @@ func (f *Filter) Execute(ctx *ExecutionContext) bool {
 }
 
 type ExecutionContext struct {
-	ptr *C.wirefilter_execution_context_t
+	ptr    *C.wirefilter_execution_context_t
 	schema *Schema
 }
 
 func NewExecutionContext(schema *Schema) *ExecutionContext {
 	ctx := C.wirefilter_create_execution_context(schema.ptr)
 	return &ExecutionContext{
-		ptr: ctx,
+		ptr:    ctx,
 		schema: schema,
 	}
 }
@@ -137,7 +137,7 @@ func (ctx *ExecutionContext) SetFieldValue(name string, value interface{}) {
 	defer C.free(unsafe.Pointer(cName))
 
 	strTName := C.wirefilter_externally_allocated_str_t{
-		data: cName,
+		data:   cName,
 		length: cNameSizeT,
 	}
 
@@ -148,34 +148,18 @@ func (ctx *ExecutionContext) SetFieldValue(name string, value interface{}) {
 	case net.IP:
 		ip := value.(net.IP)
 		log.Print(ip)
-		/*
-		if value.(net.IP).To4() != nil {
-			var ipv4 [4]C.uint8_t
-			v := unsafe.Pointer(&ipv4)
-
-			sh := (*reflect.SliceHeader)(v)
-			sh.Data = uintptr(unsafe.Pointer(&ip[0]))
-			sh.Len  = len(ip)
-
+		if ip.To4() != nil {
 			C.wirefilter_add_ipv4_value_to_execution_context(
-				ctx.ptr, strTName, &ipv4)
+				ctx.ptr, strTName, (*C.uchar)(unsafe.Pointer(&ip[0])))
 		} else {
-			var ipv6 [16]C.uint8_t
-
-			v := unsafe.Pointer(&ipv6)
-
-			sh := (*reflect.SliceHeader)(v)
-			sh.Data = uintptr(unsafe.Pointer(&ip[0]))
-			sh.Len  = len(ip)
-
 			C.wirefilter_add_ipv4_value_to_execution_context(
-				ctx.ptr, strTName, &ipv6)
-		}*/
+				ctx.ptr, strTName, (*C.uchar)(unsafe.Pointer(&ip[0])))
+		}
 	case []byte:
 		buf := value.([]byte)
 		C.wirefilter_add_bytes_value_to_execution_context(
 			ctx.ptr, strTName, C.wirefilter_externally_allocated_byte_arr_t{
-				data: (*C.uchar)(unsafe.Pointer(&buf[0])), // TODO: free here needed?
+				data:   (*C.uchar)(unsafe.Pointer(&buf[0])), // TODO: free here needed?
 				length: C.size_t(len(buf)),
 			})
 	case string:
