@@ -1,14 +1,18 @@
 package main
 
 import (
-	"fmt"
+	"log"
 
-	wirefliter "github.com/hysios/wirefilter"
+	"github.com/hysios/wirefilter"
 )
 
 func main() {
-	scheme := wirefliter.CreateScheme()
+	scheme := wirefilter.CreateScheme()
 	defer scheme.Close()
 
-	fmt.Println("Hello World!")
+	filter, err := scheme.ParerFilter(`http.method eq "POST" && not http.ua matches "(googlebot|facebook)" && port in {80 443}`)
+	if err != nil {
+		log.Printf("error %s", err)
+	}
+	log.Printf("% #v", filter)
 }
