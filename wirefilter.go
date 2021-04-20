@@ -16,7 +16,6 @@ import "C"
 
 import (
 	"errors"
-	"log"
 	"net"
 	"reflect"
 	"unsafe"
@@ -147,12 +146,12 @@ func (ctx *ExecutionContext) SetFieldValue(name string, value interface{}) {
 			ctx.ptr, strTName, C.int(value.(int)))
 	case net.IP:
 		ip := value.(net.IP)
-		log.Print(ip)
-		if ip.To4() != nil {
+		if ipv4 := ip.To4(); ipv4 != nil {
 			C.wirefilter_add_ipv4_value_to_execution_context(
-				ctx.ptr, strTName, (*C.uchar)(unsafe.Pointer(&ip[0])))
+				ctx.ptr, strTName, (*C.uchar)(unsafe.Pointer(&ipv4[0])))
 		} else {
-			C.wirefilter_add_ipv4_value_to_execution_context(
+			ip := value.(net.IP)
+			C.wirefilter_add_ipv6_value_to_execution_context(
 				ctx.ptr, strTName, (*C.uchar)(unsafe.Pointer(&ip[0])))
 		}
 	case []byte:
@@ -165,6 +164,7 @@ func (ctx *ExecutionContext) SetFieldValue(name string, value interface{}) {
 	case string:
 		buf := []byte(value.(string))
 		ctx.SetFieldValue(name, buf)
+		break
 	case bool:
 		C.wirefilter_add_bool_value_to_execution_context(
 			ctx.ptr, strTName, C._Bool(value.(bool)))
