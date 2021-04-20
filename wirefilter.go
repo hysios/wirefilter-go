@@ -21,6 +21,8 @@ import "C"
 
 import (
 	"errors"
+	"net"
+	"reflect"
 	"unsafe"
 )
 
@@ -81,4 +83,12 @@ func RString(s string) C.rust_allocated_str {
 
 func GString(s C.rust_allocated_str) string {
 	return string(C.GoBytes(unsafe.Pointer(s.data), C.int(s.length)))
+}
+
+func IP2IP(ip net.IP) (ipv4 [4]C.uint8_t) {
+	v := unsafe.Pointer(&ipv4)
+	sh := (*reflect.SliceHeader)(v)
+	sh.Data = uintptr(unsafe.Pointer(&ip[0]))
+	sh.Len = len(ip)
+	return
 }
