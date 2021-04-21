@@ -1,7 +1,7 @@
 package wirefilter
 
 //#cgo LDFLAGS: -L${SRCDIR}/lib -Wl,-rpath,${SRCDIR}/lib -lwirefilter_ffi
-//#cgo CFLAGS: -I./include
+//#cgo CFLAGS: -I${SRCDIR}/
 //#include <stdbool.h>
 //#include "wirefilter.h"
 //typedef struct {
@@ -17,7 +17,6 @@ import "C"
 import (
 	"errors"
 	"net"
-	"reflect"
 	"unsafe"
 )
 
@@ -32,6 +31,7 @@ const (
 
 type Schema struct {
 	ptr   *C.wirefilter_scheme_t
+	rst   C.wirefilter_parsing_result_t
 	types map[string]Type
 }
 
@@ -71,6 +71,7 @@ func (s Schema) Parse(input string) (*AST, error) {
 			data:   cInput,
 			length: cInputSizeT,
 		})
+	s.rst = parsingResult
 
 	parsingResultPtr := unsafe.Pointer(&parsingResult)
 
@@ -88,18 +89,60 @@ func (s Schema) Parse(input string) (*AST, error) {
 // TODO: wirefilter_free_parsing_result
 
 func (s *Schema) Close() {
+	C.wirefilter_free_parsing_result(s.rst)
 	C.wirefilter_free_scheme(s.ptr)
 }
 
 type AST struct {
 	ptr *C.wirefilter_filter_ast_t
+	compiled bool
 }
 
 func (ast *AST) Compile() *Filter {
 	compileResult := C.wirefilter_compile_filter(ast.ptr)
+	//defer C.free(unsafe.Pointer(compileResult))
+
+	ast.compiled = true
 	return &Filter{
 		ptr: compileResult,
 	}
+}
+
+func (ast *AST) Uses(name string) (bool, error) {
+	if ast.compiled {
+		return false, errors.New("ast compiled already")
+	}
+
+	cName := C.CString(name)
+	cNameSizeT := C.size_t(len(name))
+	defer C.free(unsafe.Pointer(cName))
+
+	r := C.wirefilter_filter_uses(ast.ptr, C.wirefilter_externally_allocated_str_t{
+		data: cName,
+		length: cNameSizeT,
+	})
+	return bool(r), nil
+}
+
+func (ast *AST) JSON() (string, error) {
+	if ast.compiled {
+		return "", errors.New("ast compiled already")
+	}
+	r := C.wirefilter_serialize_filter_to_json(ast.ptr)
+
+	data := string(C.GoBytes(unsafe.Pointer(r.data), C.int(r.length)))
+	C.wirefilter_free_string(r)
+	return data, nil
+}
+
+func (ast AST) Hash() (uint64, error) {
+	if ast.compiled {
+		return 0, errors.New("ast compiled already")
+	}
+
+	r := C.wirefilter_get_filter_hash(ast.ptr)
+	//defer C.free(unsafe.Pointer(r))
+	return uint64(r), nil
 }
 
 type Filter struct {
@@ -109,6 +152,10 @@ type Filter struct {
 func (f *Filter) Execute(ctx *ExecutionContext) bool {
 	r := C.wirefilter_match(f.ptr, ctx.ptr)
 	return bool(r)
+}
+
+func (f *Filter) Close() {
+	C.wirefilter_free_compiled_filter(f.ptr)
 }
 
 type ExecutionContext struct {
@@ -150,7 +197,6 @@ func (ctx *ExecutionContext) SetFieldValue(name string, value interface{}) {
 			C.wirefilter_add_ipv4_value_to_execution_context(
 				ctx.ptr, strTName, (*C.uchar)(unsafe.Pointer(&ipv4[0])))
 		} else {
-			ip := value.(net.IP)
 			C.wirefilter_add_ipv6_value_to_execution_context(
 				ctx.ptr, strTName, (*C.uchar)(unsafe.Pointer(&ip[0])))
 		}
@@ -179,12 +225,4 @@ func (ctx *ExecutionContext) Close() {
 func Version() string {
 	versionResult := C.wirefilter_get_version()
 	return string(C.GoBytes(unsafe.Pointer(versionResult.data), C.int(versionResult.length)))
-}
-
-func IP2IP(ip net.IP) (ipv4 [4]C.uint8_t) {
-	v := unsafe.Pointer(&ipv4)
-	sh := (*reflect.SliceHeader)(v)
-	sh.Data = uintptr(unsafe.Pointer(&ip[0]))
-	sh.Len = len(ip)
-	return
 }
