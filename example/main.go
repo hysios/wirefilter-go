@@ -47,6 +47,7 @@ func main() {
 		`http.user_agent contains "MSIE"`,
 		`ip.src.ipv4 in {1.1.1.1}`,
 		`ip.src.ipv4 in {1.1.1.0/24}`,
+		`not (ip.src.ipv4 in {1.1.1.0/24})`,
 		`ip.src.ipv4 eq 1.1.1.1`,
 		`ip.src.ipv4 == 1.1.1.1`,
 		`ip.geoip.asnum == 1111`,
@@ -58,7 +59,15 @@ func main() {
 		`ip.geoip.asnum in {1112 1002}`,
 		`not (ip.geoip.asnum in {1112 1002})`,
 		`ip.src.ipv4 in {1.1.1.0..1.1.1.255}`,
+		`ip.src.ipv4 in {1.1.1.10..1.1.1.255}`,
+		`ip.src.ipv4 in {1.0.0.0/24 10.0.0.0/24}`,
+		`ip.src.ipv4 in {1.0.0.0/24 10.0.0.0/24 1.1.1.0/24}`,
 		`ip.src.ipv6 in {2400:cb00::/32}`,
+		`http.request.method eq "GET" and ip.src.ipv4 in {1.1.1.0/24}`,
+		`http.request.method eq "GET" and ip.src.ipv4 in {10.1.1.0/24}`,
+		`http.request.method eq "GET" and ip.src.ipv4 in {10.1.1.0/24} or internal`,
+		`http.user_agent matches "(?i)(mac|iphone)"`,
+		`http.user_agent matches   "mac"`,
 	}
 
 	for _, rule := range rules {
@@ -70,7 +79,7 @@ func main() {
 		}
 
 		filter := ast.Compile()
-		// filter.Close() ?
+		fmt.Println(ast.Hash())
 
 		fmt.Print(rule, "\n=> ", filter.Execute(ctx), "\n\n")
 	}

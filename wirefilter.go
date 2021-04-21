@@ -109,10 +109,6 @@ func (ast *AST) Compile() *Filter {
 }
 
 func (ast *AST) Uses(name string) (bool, error) {
-	if ast.compiled {
-		return false, errors.New("ast compiled already")
-	}
-
 	cName := C.CString(name)
 	cNameSizeT := C.size_t(len(name))
 	defer C.free(unsafe.Pointer(cName))
@@ -125,9 +121,6 @@ func (ast *AST) Uses(name string) (bool, error) {
 }
 
 func (ast *AST) JSON() (string, error) {
-	if ast.compiled {
-		return "", errors.New("ast compiled already")
-	}
 	r := C.wirefilter_serialize_filter_to_json(ast.ptr)
 
 	data := string(C.GoBytes(unsafe.Pointer(r.data), C.int(r.length)))
@@ -136,10 +129,6 @@ func (ast *AST) JSON() (string, error) {
 }
 
 func (ast AST) Hash() (uint64, error) {
-	if ast.compiled {
-		return 0, errors.New("ast compiled already")
-	}
-
 	r := C.wirefilter_get_filter_hash(ast.ptr)
 	//defer C.free(unsafe.Pointer(r))
 	return uint64(r), nil
